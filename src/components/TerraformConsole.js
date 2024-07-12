@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import axios from 'axios';
 
 export default function TerraformConsole() {
+    const url = '<ip/url of backend application>'
     const [output, setOutput] = useState();
     const [text, setText] = useState();
     const [alert, setAlert] = useState({message: null, type: null});
@@ -11,13 +12,13 @@ export default function TerraformConsole() {
         if (savedText) {
             setText(savedText);
         } else {
-            axios.get('http://localhost:8080/save')
+            axios.get(url+'/save')
                 .then((response) => {
-                    //console.log(response);
+                    console.log(response);
                     setText(response.data);
                 })
                 .catch((error) => {
-                    console.error(error);
+                    console.log(error);
                 });
         }
     }, []);
@@ -27,26 +28,30 @@ export default function TerraformConsole() {
         if (type === "success") {
             setTimeout(() => {
                 setAlert({message: null, type: null});
-            }, 1000);
+            }, 2000);
         }
     }
 
-    const onClickSave = () => {
+    const onClickSave = (e) => {
+	showAlert("Saving...", "warning");
+	e.target.disabled = true;
         const data = text;
-        axios.post('http://localhost:8080/save', {
+        axios.post(url+'/save', {
             data}).then((response) => {
                 console.log(response);
                 localStorage.removeItem('terraformCode');
                 // alert('Terraform code saved successfully!');
                 showAlert("Saved successfully", "success");
+		e.target.disabled = false;
             }).catch((error) => {
                 console.log(error);
+		e.target.disabled = false;
             });
     }
     const onClickInit = (e) => {
         showAlert("Terraform init in progress", "warning");
         e.target.disabled = true;
-        axios.post('http://localhost:8080/init', {
+        axios.post(url+'/init', {
         }).then((response) => {
             // console.log(response);
             setOutput(response.data);
@@ -62,7 +67,7 @@ export default function TerraformConsole() {
     const onClickPlan = (e) => {
         showAlert("Terraform plan in progress", "warning");
         e.target.disabled = true;
-        axios.post('http://localhost:8080/plan', {
+        axios.post(url+'/plan', {
         }).then((response) => {
             // console.log(response);
             setOutput(response.data);
@@ -79,7 +84,7 @@ export default function TerraformConsole() {
     const onClickApply = (e) => {
         showAlert("Terraform apply in progress", "warning");
         e.target.disabled = true;
-        axios.post('http://localhost:8080/apply', {
+        axios.post(url+'/apply', {
         }).then((response) => {
             // console.log(response);
             setOutput(response.data);

@@ -6,15 +6,21 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type saveData struct {
-	Data string
+	Data string `json:"data"`
 }
 
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		// call GetListOfApplications function for / endpoint
 		apps := GetListOfApplications()
 		// convert response to json and return
@@ -22,7 +28,13 @@ func main() {
 			w.Write([]byte(app + "\n"))
 		}
 	})
+
 	mux.HandleFunc("/save", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		if r.Method == http.MethodPost {
 			var data saveData
 			err := json.NewDecoder(r.Body).Decode(&data)
@@ -34,115 +46,122 @@ func main() {
 			SetGitConfig()
 			AddCommitAndPushToGit()
 			w.Write([]byte("Data saved to file"))
-		}
-		if r.Method == http.MethodGet {
+		} else if r.Method == http.MethodGet {
 			data := GetDataFromFile("/home/ec2-user/my-application-1/main.tf")
 			w.Write([]byte(data))
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-
 	})
+
 	mux.HandleFunc("/init", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			cmd := exec.Command("cd", "/home/ec2-user/my-application-1")
-			_, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			cmd = exec.Command("terraform", "init")
-			out, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			//log.Println(out)
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(out))
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
+		if r.Method == http.MethodPost {
+			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform init")
+			out, err := cmd.Output()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write(out)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
+
 	mux.HandleFunc("/plan", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			cmd := exec.Command("cd", "/home/ec2-user/my-application-1")
-			_, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			cmd = exec.Command("terraform", "plan")
-			out, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(out))
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
+		if r.Method == http.MethodPost {
+			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform plan")
+			out, err := cmd.Output()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write(out)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
+
 	mux.HandleFunc("/apply", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			cmd := exec.Command("cd", "/home/ec2-user/my-application-1")
-			_, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			cmd = exec.Command("terraform", "apply", "-auto-approve")
-			out, err := cmd.Output()
-			if err != nil {
-				log.Fatal(err)
-			}
-			// log.Println(out)
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(out))
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
+		if r.Method == http.MethodPost {
+			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform apply -auto-approve")
+			out, err := cmd.Output()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write(out)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
 
 	handler := enableCors(mux)
-	http.ListenAndServe(":8080", handler)
+	log.Println("Server running on port 8080")
+	if err := http.ListenAndServe(":8080", handler); err != nil {
+		log.Fatalf("Could not start server: %s\n", err.Error())
+	}
 }
 
 func WriteToFile(filepath string, data string) {
 	var file *os.File
+	var err error
 
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		file, err = os.Create(filepath)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error creating file: %s\n", err.Error())
+			return
 		}
 		defer file.Close()
 	} else {
-		file, err = os.OpenFile(filepath, os.O_RDWR, 0644)
+		file, err = os.OpenFile(filepath, os.O_RDWR|os.O_TRUNC, 0644)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error opening file: %s\n", err.Error())
+			return
 		}
+		defer file.Close()
 	}
-	_, err := file.WriteString(data)
+	_, err = file.WriteString(data)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error writing to file: %s\n", err.Error())
 	}
 }
 
 func GetDataFromFile(filepath string) string {
-	var file *os.File
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
-		// create empty file
-		_, err = os.Create(filepath)
+		file, err := os.Create(filepath)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Error creating file: %s\n", err.Error())
+			return ""
 		}
+		file.Close()
 	}
 
-	file, err := os.OpenFile(filepath, os.O_RDWR, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	// Read the content of the file
 	data, err := os.ReadFile(filepath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error reading file: %s\n", err.Error())
+		return ""
 	}
 
-	// Convert the content to string and return
 	return string(data)
 }
 
@@ -152,12 +171,13 @@ func GetListOfApplications() []string {
 
 func enableCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		// Handle preflight requests
 		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
@@ -166,54 +186,20 @@ func enableCors(next http.Handler) http.Handler {
 }
 
 func SetGitConfig() {
-	println("Setting git config")
-	cmd := exec.Command("cd", "/home/ec2-user/my-application-1")
-	_, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
+	cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && git config user.email 'malav.treasurer@gmail.com' && git config user.name 'Malav Treasurer'")
+	if _, err := cmd.Output(); err != nil {
+		if strings.Contains("Everything up-to-date", err.Error()) {
+			log.Printf("No changes to be pushed.")
+		} else {
+			log.Printf("Error setting git config: %s\n", err.Error())
+		}
 	}
-	cmd = exec.Command("git", "config", "user.email", "malav.treasurer@gmail.com") // git config --global user.email
-	_, err = cmd.Output()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	println("done setting git user email")
-	cmd = exec.Command("git", "config", "user.name", "Malav Treasurer") // git config --global user.name
-	_, err = cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	println("done setting git user name")
-
 }
 
 func AddCommitAndPushToGit() {
-	println("Adding, committing and pushing to git")
-	cmd := exec.Command("cd", "/home/ec2-user/my-application-1")
-	_, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
+	cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && git add main.tf && git commit -m 'Update main.tf' && git push")
+	if _, err := cmd.Output(); err != nil {
+		log.Printf("Error adding, committing, or pushing to git: %s\n", err.Error())
 	}
-	println("done cd")
-	cmd = exec.Command("git", "add", "main.conf") // git add main.conf
-	_, err = cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	println("completed git add")
-	cmd = exec.Command("git", "commit", "-m", "Update main.conf") // git commit -m "Added new data"
-	_, err = cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	println("completed git commit")
-
-	cmd = exec.Command("git", "push") // git push
-	_, err = cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	println("completed git push")
 }
 
