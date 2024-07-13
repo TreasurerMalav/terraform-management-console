@@ -3,6 +3,7 @@ import axios from 'axios';
 
 export default function TerraformConsole() {
     const url = '<ip/url of backend application>'
+    const [applyButton, setApplyButton] = useState(true);
     const [output, setOutput] = useState();
     const [text, setText] = useState();
     const [alert, setAlert] = useState({message: null, type: null});
@@ -25,11 +26,11 @@ export default function TerraformConsole() {
 
     const showAlert = (message, type) => {
         setAlert({message, type});
-        if (type === "success") {
-            setTimeout(() => {
-                setAlert({message: null, type: null});
-            }, 2000);
-        }
+        //if (type === "success") {
+        //    setTimeout(() => {
+        //        setAlert({message: null, type: null});
+        //    }, 2000);
+        //}
     }
 
     const onClickSave = (e) => {
@@ -43,14 +44,17 @@ export default function TerraformConsole() {
                 // alert('Terraform code saved successfully!');
                 showAlert("Saved successfully", "success");
 		e.target.disabled = false;
+		setApplyButton(true);
             }).catch((error) => {
                 console.log(error);
+		showAlert("Error in saving file", "danger");
 		e.target.disabled = false;
             });
     }
     const onClickInit = (e) => {
-        showAlert("Terraform init in progress", "warning");
+        //showAlert("Terraform init in progress", "warning");
         e.target.disabled = true;
+	showAlert("Terraform init in progress", "warning");
         axios.post(url+'/init', {
         }).then((response) => {
             // console.log(response);
@@ -65,8 +69,9 @@ export default function TerraformConsole() {
         });
     }
     const onClickPlan = (e) => {
-        showAlert("Terraform plan in progress", "warning");
+        //showAlert("Terraform plan in progress", "warning");
         e.target.disabled = true;
+	showAlert("Terraform plan in progress", "warning");
         axios.post(url+'/plan', {
         }).then((response) => {
             // console.log(response);
@@ -74,6 +79,7 @@ export default function TerraformConsole() {
             //alert('Terraform plan successful');
             showAlert("Terraform plan successful", "success");
             e.target.disabled = false;
+	    setApplyButton(false);
             // document.getElementsByName('apply')[0].disabled = false;
         }).catch((error) => {
             console.log(error);
@@ -82,14 +88,16 @@ export default function TerraformConsole() {
         });
     }
     const onClickApply = (e) => {
-        showAlert("Terraform apply in progress", "warning");
+        //showAlert("Terraform apply in progress", "warning");
         e.target.disabled = true;
+	showAlert("Terraform apply in progress", "warning");
         axios.post(url+'/apply', {
         }).then((response) => {
             // console.log(response);
             setOutput(response.data);
             //alert('Terraform apply successful');
             showAlert("Terraform plan successful", "success");
+	    setApplyButton(true);
             e.target.disabled = false;
         }).catch((error) => {
             console.log(error);
@@ -114,7 +122,7 @@ export default function TerraformConsole() {
             <button type="button" className="btn btn-dark col-lg-2" onClick={onClickSave} name="save">Save</button><br/><br/>
             <button type="button" className="btn btn-dark col-lg-3" onClick={onClickInit} name="init">Terraform init</button><br/><br/>
             <button type="button" className="btn btn-dark col-lg-3" onClick={onClickPlan} name="plan">Terraform plan</button><br/><br/>
-            <button type="button" className="btn btn-dark col-lg-3" onClick={onClickApply} name="apply">Terraform apply</button><br/><br/>
+            <button type="button" className="btn btn-dark col-lg-3" onClick={onClickApply} name="apply" disabled={applyButton}>Terraform apply</button><br/><br/>
         </div>
         <div className="mb-3">
             <label htmlFor="terraformOutput" className="form-label"><h6>Output</h6></label>
