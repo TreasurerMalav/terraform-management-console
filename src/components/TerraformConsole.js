@@ -2,7 +2,7 @@ import React, {useState, useEffect} from 'react';
 import axios from 'axios';
 
 export default function TerraformConsole() {
-    const url = '<ip/url of backend application>'
+    const url = '<ip/url>'
     const [applyButton, setApplyButton] = useState(true);
     const [output, setOutput] = useState();
     const [text, setText] = useState();
@@ -96,12 +96,12 @@ export default function TerraformConsole() {
             // console.log(response);
             setOutput(response.data);
             //alert('Terraform apply successful');
-            showAlert("Terraform plan successful", "success");
+            showAlert("Terraform apply successful", "success");
 	    setApplyButton(true);
             e.target.disabled = false;
         }).catch((error) => {
             console.log(error);
-            showAlert("Terraform plan failed", "danger");
+            showAlert("Terraform apply failed", "danger");
             e.target.disabled = false;
         });
     }
