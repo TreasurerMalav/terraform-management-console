@@ -1,0 +1,14 @@
+[Unit]
+Description=Terraform Management Console Backend
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/main
+Restart=always
+User=ec2-user
+Group=ec2-user
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=GO_ENV=production
+
+[Install]
+WantedBy=multi-user.target
