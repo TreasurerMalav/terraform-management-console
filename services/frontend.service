@@ -1,0 +1,12 @@
+[Unit]
+Description=Terraform Management Console Frontend
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run --rm --name terraform-management-console-frontend -p 3000:3000 terraform-management-console-frontend:latest
+ExecStop=/usr/bin/docker stop terraform-management-console-frontend
+
+[Install]
+WantedBy=multi-user.target
