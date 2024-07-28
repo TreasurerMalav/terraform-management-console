@@ -42,12 +42,12 @@ func main() {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			WriteToFile("/home/ec2-user/my-application-1/main.tf", data.Data)
+			WriteToFile("/terraform/my-application-1/main.tf", data.Data)
 			SetGitConfig()
 			AddCommitAndPushToGit()
 			w.Write([]byte("Data saved to file"))
 		} else if r.Method == http.MethodGet {
-			data := GetDataFromFile("/home/ec2-user/my-application-1/main.tf")
+			data := GetDataFromFile("/terraform/my-application-1/main.tf")
 			w.Write([]byte(data))
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -61,10 +61,23 @@ func main() {
 		}
 
 		if r.Method == http.MethodPost {
-			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform init")
+			commands := []string{
+				"docker",
+				"run",
+				"-w",
+				"/terraform/my-application-1",
+				"-v",
+				"/home/ec2-user/.aws:/root/.aws",
+				"-v",
+				"/terraform/my-application-1:/terraform/my-application-1",
+				"docker-terraform:latest",
+				"init",
+			}
+			cmd := exec.Command("sh", "-c", strings.Join(commands, " "))
 			out, err := cmd.Output()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Println(err)
 				return
 			}
 			w.Header().Set("Content-Type", "text/plain")
@@ -81,7 +94,19 @@ func main() {
 		}
 
 		if r.Method == http.MethodPost {
-			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform plan")
+                        commands := []string{
+                                "docker",
+                                "run",
+                                "-w",
+                                "/terraform/my-application-1",
+                                "-v",
+                                "/home/ec2-user/.aws:/root/.aws",
+                                "-v",
+                                "/terraform/my-application-1:/terraform/my-application-1",
+                                "docker-terraform:latest",
+                                "plan",
+                        }
+                        cmd := exec.Command("sh", "-c", strings.Join(commands, " "))
 			out, err := cmd.Output()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -101,7 +126,20 @@ func main() {
 		}
 
 		if r.Method == http.MethodPost {
-			cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && terraform apply -auto-approve")
+                        commands := []string{
+                                "docker",
+                                "run",
+                                "-w",
+                                "/terraform/my-application-1",
+                                "-v",
+                                "/home/ec2-user/.aws:/root/.aws",
+                                "-v",
+                                "/terraform/my-application-1:/terraform/my-application-1",
+                                "docker-terraform:latest",
+                                "apply",
+				"-auto-approve",
+                        }
+                        cmd := exec.Command("sh", "-c", strings.Join(commands, " "))
 			out, err := cmd.Output()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -186,7 +224,7 @@ func enableCors(next http.Handler) http.Handler {
 }
 
 func SetGitConfig() {
-	cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && git config user.email 'malav.treasurer@gmail.com' && git config user.name 'Malav Treasurer'")
+	cmd := exec.Command("sh", "-c", "cd /terraform/my-application-1 && git config user.email 'malav.treasurer@gmail.com' && git config user.name 'Malav Treasurer'")
 	if _, err := cmd.Output(); err != nil {
 		if strings.Contains("Everything up-to-date", err.Error()) {
 			log.Printf("No changes to be pushed.")
@@ -197,9 +235,8 @@ func SetGitConfig() {
 }
 
 func AddCommitAndPushToGit() {
-	cmd := exec.Command("sh", "-c", "cd /home/ec2-user/my-application-1 && git add main.tf && git commit -m 'Update main.tf' && git push")
+	cmd := exec.Command("sh", "-c", "cd /terraform/my-application-1 && git add main.tf && git commit -m 'Update main.tf' && git push")
 	if _, err := cmd.Output(); err != nil {
 		log.Printf("Error adding, committing, or pushing to git: %s\n", err.Error())
 	}
 }
-
